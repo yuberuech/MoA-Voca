@@ -23,7 +23,7 @@ const uid=()=>typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID()
 function empty(){return {words:[],decks:['기본 단어장'],sessions:[]}}
 function normalize(raw){if(!raw||!Array.isArray(raw.words))throw Error('올바른 단어장 백업 파일이 아닙니다.');let words=raw.words.slice(0,20000).filter(x=>x&&typeof x.word==='string'&&typeof x.meaning==='string').map(x=>({id:String(x.id||uid()),word:x.word.slice(0,200).trim(),meaning:x.meaning.slice(0,500).trim(),deck:String(x.deck||'기본 단어장').slice(0,80),example:String(x.example||'').slice(0,1000),known:Math.max(0,Number(x.known)||0),missed:Math.max(0,Number(x.missed)||0),correct:Math.max(0,Number(x.correct)||0),createdAt:Number(x.createdAt)||Date.now()})).filter(x=>x.word&&x.meaning);let decks=Array.isArray(raw.decks)?raw.decks.filter(x=>typeof x==='string'&&x.trim()).slice(0,100):[];decks=[...new Set(['기본 단어장',...decks,...words.map(w=>w.deck)])];return {words,decks,sessions:Array.isArray(raw.sessions)?raw.sessions.slice(-100).filter(x=>typeof x.correct==='number'&&typeof x.total==='number'):[]}}
 function load(){try{return normalize(JSON.parse(localStorage.getItem(KEY))||empty())}catch(e){return empty()}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){toast('저장에 실패했습니다. 브라우저 저장 공간을 확인해 주세요.')}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));window.moaSync?.markDirty()}catch(e){toast('저장에 실패했습니다. 브라우저 저장 공간을 확인해 주세요.')}}
 function toast(msg){const r=document.getElementById('toastRoot');r.innerHTML='<div class="toast">'+h(msg)+'</div>';clearTimeout(toast.t);toast.t=setTimeout(()=>r.innerHTML='',2800)}
 function allWrong(){return state.words.filter(w=>w.missed>0)}
 function title(t,sub){return `<div class="topline"><div><div class="eyebrow">YOUR PERSONAL VOCABULARY</div><h1 class="heading">${h(t)}</h1><div class="muted">${h(sub)}</div></div><span class="pill">✦ 나만의 단어장</span></div>`}
@@ -70,9 +70,20 @@ document.getElementById('modalRoot').addEventListener('click',e=>{if(e.target.cl
 document.getElementById('modalRoot').addEventListener('submit',e=>{e.preventDefault();let form=e.target;if(form.id==='wordForm'){let word=document.getElementById('eng').value.trim(),meaning=document.getElementById('kor').value.trim(),example=document.getElementById('example').value.trim(),deck=document.getElementById('deck').value,id=form.dataset.id;if(!word||!meaning)return;let existing=state.words.find(w=>w.id===id),duplicate=state.words.some(w=>w.id!==id&&normEn(w.word)===normEn(word)&&w.deck===deck);if(duplicate&&!confirm('이 분류에 같은 영어 단어가 있습니다. 그래도 저장할까요?'))return;if(existing)Object.assign(existing,{word,meaning,example,deck});else state.words.push({id:uid(),word,meaning,example,deck,known:0,missed:0,correct:0,createdAt:Date.now()});save();closeModal();render();toast('단어를 저장했습니다.')}else if(form.id==='bulkForm'){let deck=document.getElementById('bulkDeck').value,lines=document.getElementById('bulkText').value.split(/\r?\n/),added=0,skipped=0;for(let line of lines){if(!line.trim())continue;let p=line.includes('|')?line.split('|'):line.split('\t');let word=(p[0]||'').trim(),meaning=(p[1]||'').trim(),example=p.slice(2).join('|').trim();if(!word||!meaning||state.words.some(w=>normEn(w.word)===normEn(word)&&w.deck===deck)){skipped++;continue}state.words.push({id:uid(),word:word.slice(0,200),meaning:meaning.slice(0,500),example:example.slice(0,1000),deck,known:0,missed:0,correct:0,createdAt:Date.now()});added++}save();closeModal();render();toast(`${added}개 추가 · ${skipped}개 건너뜀`)}else if(form.id==='deckForm'){let name=document.getElementById('deckName').value.trim();if(!name)return;if(state.decks.includes(name)){toast('이미 있는 분류입니다.');return}state.decks.push(name);save();closeModal();render();toast('새 단어장을 만들었습니다.')}});
 document.querySelectorAll('.nav').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();else if(e.code==='Space'&&page==='learn'&&learn&&!e.target.closest('input,textarea,select,button')){e.preventDefault();learn.flipped=!learn.flipped;render()}});
+const originalSettings=settings;
+settings=function(){originalSettings();app.insertAdjacentHTML('beforeend',window.moaSync?.panel()||'')};
+window.moaBridge={
+ getState:()=>JSON.parse(JSON.stringify(state)),
+ replaceState:(raw)=>{state=normalize(raw);localStorage.setItem(KEY,JSON.stringify(state));setPage('home')},
+ isSettings:()=>page==='settings',
+ render:()=>render()
+};
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 render();
 })();
 </script>
+<script src="sync-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="sync.js"></script>
 </body>
 </html>
