@@ -1,0 +1,19 @@
+{
+  "name": "모아보카 - 나만의 영어 단어장",
+  "short_name": "모아보카",
+  "description": "나만의 단어장, 암기, 철자 시험, 오답 복습",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7fb",
+  "theme_color": "#131b31",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
